@@ -51,3 +51,7 @@ pub fn vec_sub<F: PrimeField>(
         .map(| (a, b) | *a - b)
         .collect()
 }
+
+pub fn is_zero_vec<F: PrimeField>(vec: &[F]) -> bool {
+    cfg_iter!(vec).all(|a| a.is_zero())
+}

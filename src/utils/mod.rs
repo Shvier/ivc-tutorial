@@ -1,8 +1,11 @@
 use std::marker::PhantomData;
 
+use ark_bls12_381::Bls12_381;
 use ark_crypto_primitives::sponge::{poseidon::{PoseidonConfig, PoseidonSponge}, Absorb, CryptographicSponge};
-use ark_ec::CurveGroup;
+use ark_ec::{pairing::Pairing, CurveGroup};
 use ark_ff::{BigInteger, PrimeField};
+
+pub type BlsScalarField = <Bls12_381 as Pairing>::ScalarField;
 
 pub struct RandomOracle<
     G: CurveGroup,

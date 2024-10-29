@@ -1,17 +1,17 @@
-use ark_ff::PrimeField;
 use ark_relations::r1cs::Matrix as R1CSMatrix;
+use ark_std::One;
 
-use crate::arith::vec::{hadamard, matrix_vec_mul, vec_scalar_mul, vec_sub};
+use crate::{arith::vec::{hadamard, matrix_vec_mul, vec_scalar_mul, vec_sub}, nova::{Instance, Witness}, utils::BlsScalarField};
 
-pub struct R1CS<F: PrimeField> {
+pub struct R1CS {
     pub l: usize, // io len
-    pub a: R1CSMatrix<F>,
-    pub b: R1CSMatrix<F>,
-    pub c: R1CSMatrix<F>,
+    pub a: R1CSMatrix<BlsScalarField>,
+    pub b: R1CSMatrix<BlsScalarField>,
+    pub c: R1CSMatrix<BlsScalarField>,
 }
 
-impl<F: PrimeField> R1CS<F> {
-    pub fn eval_at_z(&self, z: &[F]) -> Vec<F> {
+impl R1CS {
+    pub fn eval_at_z(&self, z: &[BlsScalarField]) -> Vec<BlsScalarField> {
         let az = matrix_vec_mul(&self.a, z);
         let bz = matrix_vec_mul(&self.b, z);
         let cz = matrix_vec_mul(&self.c, z);
@@ -20,6 +20,16 @@ impl<F: PrimeField> R1CS<F> {
         let ucz = vec_scalar_mul(&cz, &z[z.len() - 1]);
         let az_bz = hadamard(&az, &bz);
         vec_sub(&az_bz, &ucz)
+    }
+
+    pub fn eval_relation(&self, w: &Vec<BlsScalarField>, x: &Vec<BlsScalarField>) -> Vec<BlsScalarField> {
+        self.eval_at_z(&[w.to_vec(), x.to_vec(), [BlsScalarField::one()].to_vec()].concat())
+    }
+
+    pub fn check_relation(&self, w: &Witness, u: &Instance) {
+        let z = [w.w.to_vec(), u.x.to_vec(), [u.u].to_vec()].concat();
+        let evals = self.eval_at_z(&z);
+        assert_eq!(evals, w.e);
     }
 }
 
@@ -30,6 +40,8 @@ pub mod tests {
     use ark_ff::PrimeField;
     use ark_relations::r1cs::Matrix as R1CSMatrix;
     use ark_std::{cfg_iter, rand::Rng, Zero};
+
+    use crate::arith::vec::is_zero_vec;
 
     use super::R1CS;
 
@@ -83,7 +95,7 @@ pub mod tests {
         matrix
     }
 
-    pub fn get_test_r1cs<F: PrimeField>() -> R1CS<F> {
+    pub fn get_test_r1cs() -> R1CS {
         let a = to_f_matrix(vec![
             vec![0, 0, 0, 0, 1, 0],
             vec![0, 1, 0, 0, 0, 0],
@@ -108,11 +120,10 @@ pub mod tests {
     #[test]
     fn test_eval_r1cs_relation() {
         let mut rng = ark_std::test_rng();
-        let r1cs = get_test_r1cs::<BlsScalarField>();
+        let r1cs = get_test_r1cs();
         let z = get_test_z::<BlsScalarField>(rng.gen::<u16>() as usize);
 
         let evals = r1cs.eval_at_z(&z);
-        let res = cfg_iter!(evals).all(| e | e.is_zero());
-        assert!(res);
+        is_zero_vec(&evals);
     }
 }
